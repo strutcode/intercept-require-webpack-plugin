@@ -11,6 +11,9 @@
     "cjs": "tsc -p tsconfig.cjs.json",
     "esm": "tsc -p tsconfig.esm.json"
   },
+  "dependencies": {
+    "webpack-sources": "^1.4"
+  },
   "peerDependencies": {
     "webpack": "^4"
   },
