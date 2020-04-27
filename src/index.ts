@@ -2,8 +2,19 @@ import { Compiler } from 'webpack'
 import { ConcatSource } from 'webpack-sources'
 import path from 'path'
 
+export interface InterceptContext {
+  query: string
+  context: string
+  module: string
+}
+
+export type InterceptFunction = (
+  context: InterceptContext,
+  original: (query: string) => any,
+) => any
+
 export default class InterceptRequireWebpackPlugin {
-  constructor(private callback: Function) {}
+  constructor(private callback: InterceptFunction) {}
 
   apply(compiler: Compiler) {
     const callback = this.callback
@@ -41,4 +52,8 @@ export default class InterceptRequireWebpackPlugin {
       )
     })
   }
+}
+
+if (module) {
+  module.exports = InterceptRequireWebpackPlugin
 }
