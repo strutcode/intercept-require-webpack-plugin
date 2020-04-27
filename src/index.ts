@@ -4,8 +4,8 @@ import path from 'path'
 
 export interface InterceptContext {
   query: string
-  context: string
-  module: string
+  request: string
+  issuer: string
 }
 
 export type InterceptFunction = (
@@ -27,7 +27,6 @@ export default class InterceptRequireWebpackPlugin {
         'InterceptRequirePlugin',
         function (moduleSource, moduleObject) {
           const result = new ConcatSource()
-          const context = moduleObject.context
 
           result.add(
             unindent(
@@ -36,7 +35,11 @@ export default class InterceptRequireWebpackPlugin {
                 __webpack_require__ = (function (o) {
                   var cb = ${callback.toString()}
                   var i = function(q) {
-                    return cb(q, ${JSON.stringify(context)}, o)
+                    return cb({
+                      query: q,
+                      request: ${JSON.stringify(moduleObject.request)},
+                      issuer: ${JSON.stringify(moduleObject.issuer.request)}
+                    }, o)
                   }
                   Object.assign(i, o);
                   return i;
