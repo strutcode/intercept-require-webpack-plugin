@@ -1,10 +1,9 @@
-import { Compiler } from 'webpack'
+import { Compiler, compilation, Template } from 'webpack'
 import { ConcatSource } from 'webpack-sources'
-import path from 'path'
 
 export interface InterceptContext {
   query: string
-  request: string
+  resource: string
   issuer: string
 }
 
@@ -13,46 +12,67 @@ export type InterceptFunction = (
   original: (query: string) => any,
 ) => any
 
+class MainTemplatePlugin {
+  apply(mainTemplate: compilation.MainTemplate, callback: Function) {
+    // @ts-ignore
+    mainTemplate.hooks.require.tap('InterceptRequirePlugin', function (source) {
+      return Template.asString([
+        'function original(moduleId) {',
+        Template.indent(source),
+        '};',
+        'var ctx = {',
+        Template.indent([
+          'query: moduleId,',
+          'module: this.module,',
+          'issuer: this.issuer,',
+          'modules: modules,',
+          'loaded: installedModules,',
+        ]),
+        '};',
+        'return (',
+        Template.indent(callback.toString()),
+        ')(ctx, original);',
+      ])
+    })
+  }
+}
+
+class ModuleTemplatePlugin {
+  apply(moduleTemplate: compilation.ModuleTemplate) {
+    moduleTemplate.hooks.render.tap('InterceptRequirePlugin', function (
+      moduleSource,
+      moduleObj,
+    ) {
+      if (!moduleObj.dependencies.length) {
+        return moduleSource
+      }
+
+      const result = new ConcatSource()
+
+      const moduleName = JSON.stringify(moduleObj?.resource)
+      const issuerName = JSON.stringify(moduleObj?.issuer?.resource)
+
+      result.add(
+        Template.asString([
+          `__webpack_require__.module = ${moduleName};`,
+          `__webpack_require__.issuer = ${issuerName};`,
+        ]),
+      )
+
+      result.add(moduleSource)
+
+      return result
+    })
+  }
+}
+
 export default class InterceptRequireWebpackPlugin {
   constructor(private callback: InterceptFunction) {}
 
   apply(compiler: Compiler) {
-    const callback = this.callback
-    const unindent = (s: string) => s.replace(/^\s*/m, '')
-
-    compiler.hooks.compilation.tap('InterceptRequirePlugin', function (
-      compilation,
-    ) {
-      compilation.moduleTemplates.javascript.hooks.render.tap(
-        'InterceptRequirePlugin',
-        function (moduleSource, moduleObject) {
-          const result = new ConcatSource()
-
-          result.add(
-            unindent(
-              `
-              if (typeof __webpack_require__ !== 'undefined') {
-                __webpack_require__ = (function (o) {
-                  var cb = ${callback.toString()}
-                  var i = function(q) {
-                    return cb({
-                      query: q,
-                      request: ${JSON.stringify(moduleObject.request)},
-                      issuer: ${JSON.stringify(moduleObject.issuer.request)}
-                    }, o)
-                  }
-                  Object.assign(i, o);
-                  return i;
-                })(__webpack_require__);
-              }`,
-            ),
-          )
-
-          result.add(moduleSource)
-
-          return result
-        },
-      )
+    compiler.hooks.compilation.tap('InterceptRequirePlugin', (compilation) => {
+      new MainTemplatePlugin().apply(compilation.mainTemplate, this.callback)
+      new ModuleTemplatePlugin().apply(compilation.moduleTemplates.javascript)
     })
   }
 }

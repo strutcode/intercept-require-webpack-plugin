@@ -1,7 +1,7 @@
 import { Compiler } from 'webpack';
 export interface InterceptContext {
     query: string;
-    request: string;
+    resource: string;
     issuer: string;
 }
 export declare type InterceptFunction = (context: InterceptContext, original: (query: string) => any) => any;

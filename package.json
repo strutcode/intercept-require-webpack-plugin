@@ -1,6 +1,6 @@
 {
   "name": "intercept-require-webpack-plugin",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "main": "lib/cjs/index.js",
   "module": "lib/esm/index.js",
   "types": "lib/esm/index.d.ts",
@@ -11,16 +11,16 @@
     "cjs": "tsc -p tsconfig.cjs.json",
     "esm": "tsc -p tsconfig.esm.json"
   },
-  "dependencies": {
-    "webpack-sources": "^1.4"
-  },
   "peerDependencies": {
-    "webpack": "^4"
+    "webpack": "^4",
+    "webpack-sources": "^1.4"
   },
   "devDependencies": {
     "@types/node": "^13.13.2",
     "@types/webpack": "^4.41.12",
     "@types/webpack-sources": "^0.1.7",
-    "typescript": "^3.8.3"
+    "typescript": "^3.8.3",
+    "webpack": "^4.43.0",
+    "webpack-sources": "^1.4.3"
   }
 }
