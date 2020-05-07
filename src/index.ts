@@ -1,5 +1,5 @@
 import { Compiler, compilation, Template } from 'webpack'
-import { ConcatSource } from 'webpack-sources'
+import { ConcatSource, ReplaceSource } from 'webpack-sources'
 
 export interface InterceptContext {
   query: string
@@ -12,67 +12,84 @@ export type InterceptFunction = (
   original: (query: string) => any,
 ) => any
 
+export type InterceptItentifier = string | InterceptFunction
+
 class MainTemplatePlugin {
-  apply(mainTemplate: compilation.MainTemplate, callback: Function) {
+  apply(mainTemplate: compilation.MainTemplate, callback: InterceptItentifier) {
+    mainTemplate.hooks.localVars.tap('InterceptRequirePlugin', function (
+      source,
+    ) {
+      return Template.asString([
+        source,
+        '// Track require calls',
+        'var requireStack = [];',
+      ])
+    })
+
     // @ts-ignore
     mainTemplate.hooks.require.tap('InterceptRequirePlugin', function (source) {
+      const contextualizedSource = source.replace(
+        '__webpack_require__',
+        'contextualize(requireStack.slice())',
+      )
+
+      let callbackCall
+
+      if (typeof callback === 'string') {
+        callbackCall = Template.asString([
+          `var cb = original(${JSON.stringify(callback)});`,
+          'const ret = (cb.default || cb)(ctx, original);',
+        ])
+      } else {
+        callbackCall = Template.asString([
+          'const ret = (',
+          Template.indent(callback.toString()),
+          ')(ctx, original);',
+        ])
+      }
+
       return Template.asString([
-        'function original(moduleId) {',
-        Template.indent(source),
-        '};',
-        'var ctx = {',
+        'function contextualize(requireStack) {',
         Template.indent([
-          'query: moduleId,',
-          'module: this.module,',
-          'issuer: this.issuer,',
-          'modules: modules,',
-          'loaded: installedModules,',
+          'function __webpack_intercepted_require__(moduleId) {',
+          Template.indent([
+            'if (typeof moduleId === "string") requireStack.push(moduleId);',
+            'function original(moduleId) {',
+            Template.indent(contextualizedSource),
+            '};',
+            'var ctx = {',
+            Template.indent([
+              'query: moduleId,',
+              'parent: requireStack[requireStack.length - 2],',
+              'issuer: requireStack[requireStack.length - 3],',
+              'modules: modules,',
+              'loaded: installedModules,',
+            ]),
+            '};',
+            callbackCall,
+            'if (typeof moduleId === "string") requireStack.pop()',
+            'return ret;',
+          ]),
+          '};',
+          '',
+          'Object.assign(__webpack_intercepted_require__, __webpack_require__);',
+          '',
+          'return __webpack_intercepted_require__;',
         ]),
         '};',
-        'return (',
-        Template.indent(callback.toString()),
-        ')(ctx, original);',
+        '',
+        'return contextualize(requireStack)(moduleId);',
       ])
     })
   }
 }
 
-class ModuleTemplatePlugin {
-  apply(moduleTemplate: compilation.ModuleTemplate) {
-    moduleTemplate.hooks.render.tap('InterceptRequirePlugin', function (
-      moduleSource,
-      moduleObj,
-    ) {
-      if (!moduleObj.dependencies.length) {
-        return moduleSource
-      }
-
-      const result = new ConcatSource()
-
-      const moduleName = JSON.stringify(moduleObj?.resource)
-      const issuerName = JSON.stringify(moduleObj?.issuer?.resource)
-
-      result.add(
-        Template.asString([
-          `__webpack_require__.module = ${moduleName};`,
-          `__webpack_require__.issuer = ${issuerName};`,
-        ]),
-      )
-
-      result.add(moduleSource)
-
-      return result
-    })
-  }
-}
-
 export default class InterceptRequireWebpackPlugin {
-  constructor(private callback: InterceptFunction) {}
+  constructor(private callback: InterceptItentifier) {}
 
   apply(compiler: Compiler) {
     compiler.hooks.compilation.tap('InterceptRequirePlugin', (compilation) => {
       new MainTemplatePlugin().apply(compilation.mainTemplate, this.callback)
-      new ModuleTemplatePlugin().apply(compilation.moduleTemplates.javascript)
     })
   }
 }
