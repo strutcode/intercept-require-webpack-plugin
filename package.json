@@ -5,6 +5,7 @@
   "module": "lib/esm/index.js",
   "types": "lib/esm/index.d.ts",
   "author": "Tristan Shelton",
+  "repository": "github:strutcode/intercept-require-webpack-plugin",
   "license": "MIT",
   "scripts": {
     "build": "yarn cjs && yarn esm",
@@ -12,15 +13,12 @@
     "esm": "tsc -p tsconfig.esm.json"
   },
   "peerDependencies": {
-    "webpack": "^4",
-    "webpack-sources": "^1.4"
+    "webpack": "^4"
   },
   "devDependencies": {
     "@types/node": "^13.13.2",
     "@types/webpack": "^4.41.12",
-    "@types/webpack-sources": "^0.1.7",
     "typescript": "^3.8.3",
-    "webpack": "^4.43.0",
-    "webpack-sources": "^1.4.3"
+    "webpack": "^4.43.0"
   }
 }

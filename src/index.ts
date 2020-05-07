@@ -1,5 +1,4 @@
-import { Compiler, compilation, Template } from 'webpack'
-import { ConcatSource, ReplaceSource } from 'webpack-sources'
+import { compilation, Compiler, Template } from 'webpack'
 
 export interface InterceptContext {
   query: string
